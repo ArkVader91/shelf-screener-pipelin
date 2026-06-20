@@ -1,0 +1,13 @@
+# Versions intentionally unpinned: this repo was built in a sandbox with no
+# PyPI access, so exact-version compatibility couldn't be verified here. After
+# the first GitHub Actions run succeeds, consider pinning these (e.g. via
+# `pip freeze` from a successful run) so future runs are reproducible.
+
+pandas
+numpy
+matplotlib
+yfinance
+
+# Debug agent only (agent/debug_agent.py) -- not needed for the daily scan.
+langchain-anthropic
+langgraph
