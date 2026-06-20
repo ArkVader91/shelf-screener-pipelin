@@ -47,4 +47,39 @@ jobs:
           if [ -n "${{ github.event.inputs.date }}" ]; then
             echo "date=${{ github.event.inputs.date }}" >> "$GITHUB_OUTPUT"
           else
-            echo "date=$(date +%F)" >> "$GITHUB
+            echo "date=$(date +%F)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run screeners
+        env:
+          MAX_SYMBOLS: ${{ github.event.inputs.max_symbols }}
+        run: |
+          if [ -n "$MAX_SYMBOLS" ]; then
+            python pipeline/run_batch.py --date "${{ steps.vars.outputs.date }}" --max-symbols "$MAX_SYMBOLS"
+          else
+            python pipeline/run_batch.py --date "${{ steps.vars.outputs.date }}"
+          fi
+
+      - name: Generate charts
+        run: python pipeline/chart_gen.py --date "${{ steps.vars.outputs.date }}"
+
+      - name: Commit batch
+        run: |
+          git config user.name "shelf-screener-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add review_batches/"${{ steps.vars.outputs.date }}"
+          if git diff --cached --quiet; then
+            echo "Nothing to commit (no signals fired, or no changes)."
+          else
+            git commit -m "Daily scan: ${{ steps.vars.outputs.date }}"
+            git push
+          fi
+
+      - name: Upload charts as a workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-batch-${{ steps.vars.outputs.date }}
+          path: review_batches/${{ steps.vars.outputs.date }}
+          if-no-files-found: ignore
+          retention-days: 14
