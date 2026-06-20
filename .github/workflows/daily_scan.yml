@@ -1,0 +1,50 @@
+name: Daily shelf-screener scan
+
+# Stage 1+2 of the feedback loop (design doc section 3.1/3.2). Runs the three
+# screeners off one shared yfinance download, renders annotated candlestick
+# charts, and commits the review batch back to the repo. No LLM calls happen
+# here and no Kite session is involved -- yfinance only, so there's nothing
+# to refresh daily on the CI side.
+
+on:
+  schedule:
+    # 13:00 UTC = 18:30 IST, Mon-Fri (after NSE close) -- matches the existing
+    # local Task Scheduler cadence described in README_AUTOMATION.md.
+    - cron: "0 13 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "As-of date (YYYY-MM-DD). Leave blank for today."
+        required: false
+      max_symbols:
+        description: "Limit universe size (debugging only). Leave blank for full universe."
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Resolve batch date
+        id: vars
+        run: |
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            echo "date=${{ github.event.inputs.date }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "date=$(date +%F)" >> "$GITHUB
